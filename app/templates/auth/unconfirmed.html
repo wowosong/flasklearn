@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% import "bootstrap/wtf.html" as wtf %}
+{% block title %}Flasky -Login {% endblock %}
+{% block page_content %}
+    <div  class="page-header">
+        <h1>Hello,{{ current_user.username }}!</h1>
+        <p>
+        You have not confirmed your account yet.
+        Before you can access this site you need to confirm your account.Check your inbox,you should have recieved an email with a confirmation link.
+        Need another confirmation email
+        </p>
+        <a href="{{url_for('auth.resend_email',token=token,_external=True)}}">重发邮件</a>
+    </div>
+{% endblock %}
