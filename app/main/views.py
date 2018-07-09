@@ -9,7 +9,7 @@ from  flask import request
 from .. import db
 from app.models import Role,User
 from ..models import User,Permission,Post
-from ..decorators import admin_required
+from ..decorators import admin_required,permission_required
 import sys
 sys.setrecursionlimit(10**5)
 @main.route('/',methods=['POST','GET'])
@@ -86,7 +86,7 @@ def post():
     posts=Post.query.order_by(Post.timestamp.desc()).all()
     return render_template('index.html',form=form,posts=posts)
 @main.route('/user/<username>',methods=['GET','POST'])
-# @login_required
+@login_required
 def user(username):
     user=User.query.filter_by(username=username).first()
     print user
@@ -117,3 +117,42 @@ def edit(id):
         return redirect(url_for('.post',id=post.id))
     form.body.data=post.body
     return render_template('edit_post.html',form=form)
+@main.route('/follow/<username>')
+@login_required
+@permission_required(Permission.FOLLOW)
+def follow(username):
+    user=User.query.filter_by(username=username).first()
+    if user is None:
+        flash(u'无效用户')
+        return redirect(url_for('.index'))
+    if current_user.is_following(user):
+        flash(u'已经关注该用户！')
+        return redirect(url_for('.user',username=username))
+    current_user.follow(user)
+    flash(u'正在关注该用户%s.'%username)
+    return redirect(url_for('.user',username=username))
+@main.route('/unfollow/<username>')
+@login_required
+@permission_required(Permission.FOLLOW)
+def unfollow(username):
+    user=User.query.filter_by(username=username).first()
+    if user is None:
+        flash(u'无效用户')
+        return redirect(url_for('.index'))
+    if current_user.is_followed_by(user):
+        flash(u'已经被该用户关注！')
+        return redirect(url_for('.user',username=username))
+    current_user.unfollow(user)
+    flash(u'正在取消关注该用户%s.'%username)
+    return redirect(url_for('.user',username=username))
+@main.route('/followers/<username>')
+def followers(username):
+    user=User.query.filter_by(username=username).first()
+    if user is None:
+        flash(u'无效用户')
+        return  redirect(url_for('.index'))
+    page=request.args.get('page',1,type=int)
+    pagination=user.followers.paginate(page,per_page=10,error_out=False)
+    follows=[{'user':item.follower,'timestamp':item.timestamp} for item in pagination.items]
+    print follow,user
+    return render_template('followers.html',user=user,title="Followers of",endpoint='.followers',pagination=pagination,follows=follows)

@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% import "bootstrap/wtf.html" as wtf %}
+{% block title %}Flasky{% endblock %}
+{% block page_content %}
+    <div class="page-header">
+        <div class="post-date">
+            {% for f in follows %}
+                <table>
+                <tr>
+                    <td>{{ f['user']}}</td><td>{{ f['timestamp'] }}</td><td>{{ user.username }}</td><td><img class="img-rounded profile-thumbnail" src="{{ user.avatar_hash }}"></td>
+                </tr>
+                </table>
+            <h1>
+            </h1>
+            {% endfor %}
+        </div>
+    </div>
+{% endblock %}
