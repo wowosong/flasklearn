@@ -1,14 +1,14 @@
 # encoding=utf-8
 from datetime import datetime
-from flask import render_template,session,redirect,url_for,abort,flash
+from flask import render_template,session,redirect,url_for,abort,flash,make_response
 from . import main
-from .forms import NameForm,EditProfileForm,EditProfileAdminForm,PostForm
+from .forms import NameForm,EditProfileForm,EditProfileAdminForm,PostForm,CommentForm
 from  app.auth.forms import LoginForm
 from flask_login import  login_required,current_user,login_user
 from  flask import request
 from .. import db
 from app.models import Role,User
-from ..models import User,Permission,Post
+from ..models import User,Permission,Post,Comment
 from ..decorators import admin_required,permission_required
 import sys
 sys.setrecursionlimit(10**5)
@@ -25,10 +25,17 @@ def index():
         return redirect(url_for('main.index'))
     # return render_template('auth/login.html',form=form)
     # return render_template('index.html',form=form,name=session.get('name'),known=session.get('known',False),current_time=datetime.utcnow())
+    show_followed=False
+    if current_user.is_authenticated:
+        show_followed=bool(request.cookies.get('show_followed',''))
+    if show_followed:
+        query=current_user.followed_posts
+    else:
+        query=Post.query
     page=request.args.get('page',1,type=int)
     pagination=Post.query.order_by(Post.timestamp.desc()).paginate(page,per_page=5,error_out=False)
     posts=pagination.items
-    return render_template('index.html',form=form,posts=posts,pagination=pagination)
+    return render_template('index.html',form=form,posts=posts,show_followed=show_followed,pagination=pagination)
 # @main.route('/user/<username>')
 # @login_required
 # def user(username):
@@ -156,3 +163,31 @@ def followers(username):
     follows=[{'user':item.follower,'timestamp':item.timestamp} for item in pagination.items]
     print follow,user
     return render_template('followers.html',user=user,title="Followers of",endpoint='.followers',pagination=pagination,follows=follows)
+@main.route('/all')
+@login_required
+def show_all():
+    resp=make_response(redirect(url_for('.index')))
+    resp.set_cookie('show_followed',max_age=30*24*60*60)
+    return resp
+@main.route('/followed')
+@login_required
+def show_followed():
+    resp=make_response(redirect(url_for('.index')))
+    resp.set_cookie('show_followed','1',max_age=30*24*60*60)
+    return resp
+@main.route('/post/<int:id>',methods=['GET','POST'])
+def post(id):
+    post=Post.query.get_or_404(id)
+    form=CommentForm()
+    if form.validate_on_submit():
+        comment=Comment(body=form.body.data,post=post,author=current_user._get_current_object())
+        db.session.add(comment)
+        flash(u'评论已经更新！')
+        return redirect(url_for('.post',id=post.id,page=-1))
+    page=request.args.get('page',1,type=int)
+    if page==-1:
+        page=(post.comments.count()-1)/10+1
+        pagination=post.comments.order_by(Comment.timestamp.asc()).paginate(page,per_page=10,error_out=False)
+    comments=pagination.items
+    return render_template('post.html',posts=[post],form=form,comments=comments,pagination=pagination)
+
